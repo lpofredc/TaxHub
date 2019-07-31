@@ -8,7 +8,7 @@ SET client_min_messages = warning;
 
 CREATE SCHEMA taxonomie;
 
-SET search_path = taxonomie, pg_catalog;
+SET search_path = taxonomie, pg_catalog, public;
 
 
 -------------
@@ -192,7 +192,47 @@ BEGIN
 END
 $$  LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION taxonomie.find_all_taxons_children(id integer)
+  RETURNS TABLE (cd_nom int, cd_ref int) AS
+$BODY$
+ --Param : cd_nom ou cd_ref d'un taxon quelque soit son rang
+ --Retourne le cd_nom de tous les taxons enfants sous forme d'un jeu de données utilisable comme une table
+ --Usage SELECT taxonomie.find_all_taxons_children(197047);
+ --ou SELECT * FROM atlas.vm_taxons WHERE cd_ref IN(SELECT * FROM taxonomie.find_all_taxons_children(197047))
+  BEGIN
+      RETURN QUERY
+      WITH RECURSIVE descendants AS (
+        SELECT tx1.cd_nom, tx1.cd_ref FROM taxonomie.taxref tx1 WHERE tx1.cd_taxsup = id
+      UNION ALL
+      SELECT tx2.cd_nom, tx2.cd_ref FROM descendants d JOIN taxonomie.taxref tx2 ON tx2.cd_taxsup = d.cd_nom
+      )
+      SELECT * FROM descendants;
 
+  END;
+$BODY$
+  LANGUAGE plpgsql IMMUTABLE;
+
+
+
+CREATE OR REPLACE FUNCTION taxonomie.find_all_taxons_children(IN ids integer[])
+  RETURNS TABLE(cd_nom integer, cd_ref integer) AS
+$BODY$
+ --Param : cd_nom ou cd_ref d'un taxon quelque soit son rang
+ --Retourne le cd_nom de tous les taxons enfants sous forme d'un jeu de données utilisable comme une table
+ --Usage SELECT taxonomie.find_all_taxons_children(197047);
+ --ou SELECT * FROM atlas.vm_taxons WHERE cd_ref IN(SELECT * FROM taxonomie.find_all_taxons_children(197047))
+  BEGIN
+      RETURN QUERY
+      WITH RECURSIVE descendants AS (
+        SELECT tx1.cd_nom, tx1.cd_ref FROM taxonomie.taxref tx1 WHERE tx1.cd_taxsup = ANY(ids)
+      UNION ALL
+      SELECT tx2.cd_nom, tx2.cd_ref FROM descendants d JOIN taxonomie.taxref tx2 ON tx2.cd_taxsup = d.cd_nom
+      )
+      SELECT * FROM descendants;
+
+  END;
+$BODY$
+  LANGUAGE plpgsql IMMUTABLE;
 ------------------------
 --TABLES AND SEQUENCES--
 ------------------------
@@ -579,8 +619,6 @@ CREATE INDEX i_fk_taxref_bib_taxref_rangs ON taxref USING btree (id_rang);
 
 CREATE INDEX i_fk_taxref_bib_taxref_statuts ON taxref USING btree (id_statut);
 
-CREATE INDEX i_taxref_cd_nom ON taxref USING btree (cd_nom);
-
 CREATE INDEX i_taxref_cd_ref ON taxref USING btree (cd_ref);
 
 CREATE INDEX i_taxref_hierarchy ON taxref USING btree (regne, phylum, classe, ordre, famille);
@@ -680,6 +718,7 @@ CREATE OR REPLACE VIEW v_taxref_all_listes AS
    FROM taxonomie.taxref t
      JOIN bib_nom_lst d ON t.cd_nom = d.cd_nom;
 
+
 CREATE TABLE vm_taxref_list_forautocomplete AS
 SELECT t.cd_nom,
   t.cd_ref,
@@ -692,7 +731,7 @@ SELECT t.cd_nom,
 FROM (
   SELECT t_1.cd_nom,
         t_1.cd_ref,
-        concat(t_1.lb_nom, ' =  <i> ', t_1.nom_valide, '</i>' ) AS search_name,
+        concat(t_1.lb_nom, ' =  <i> ', t_1.nom_valide, '</i>', ' - [', t_1.id_rang, ' - ', t_1.cd_nom , ']') AS search_name,
         t_1.nom_valide,
         t_1.lb_nom,
         t_1.regne,
@@ -701,7 +740,7 @@ FROM (
   UNION
   SELECT t_1.cd_nom,
         t_1.cd_ref,
-        concat(n.nom_francais, ' =  <i> ', t_1.nom_valide, '</i>' ) AS search_name,
+        concat(n.nom_francais, ' =  <i> ', t_1.nom_valide, '</i>', ' - [', t_1.id_rang, ' - ', t_1.cd_nom , ']' ) AS search_name,
         t_1.nom_valide,
         t_1.lb_nom,
         t_1.regne,
@@ -711,12 +750,15 @@ FROM (
   ON t_1.cd_nom = n.cd_nom
   WHERE n.nom_francais IS NOT NULL AND t_1.cd_nom = t_1.cd_ref
 ) t
-JOIN v_taxref_all_listes l ON t.cd_nom = l.cd_nom;
+JOIN taxonomie.v_taxref_all_listes l ON t.cd_nom = l.cd_nom;
 COMMENT ON TABLE vm_taxref_list_forautocomplete
      IS 'Table construite à partir d''une requete sur la base et mise à jour via le trigger trg_refresh_mv_taxref_list_forautocomplete de la table cor_nom_liste';
 
 
-CREATE OR REPLACE FUNCTION trg_fct_refresh_mv_taxref_list_forautocomplete()
+
+
+
+CREATE OR REPLACE FUNCTION taxonomie.trg_fct_refresh_mv_taxref_list_forautocomplete()
   RETURNS trigger AS
 $BODY$
 DECLARE
@@ -734,7 +776,7 @@ BEGIN
 		INSERT INTO taxonomie.vm_taxref_list_forautocomplete
 		SELECT t.cd_nom,
             t.cd_ref,
-		    concat(t.lb_nom, ' = ', t.nom_valide) AS search_name,
+		    concat(t.lb_nom, ' =  <i> ', t.nom_valide, '</i>', ' - [', t.id_rang, ' - ', t.cd_nom , ']') AS search_name,
 		    t.nom_valide,
 		    t.lb_nom,
 		    t.regne,
@@ -747,7 +789,7 @@ BEGIN
 			INSERT INTO taxonomie.vm_taxref_list_forautocomplete
 			SELECT t.cd_nom,
                 t.cd_ref,
-			    concat(new_nom_vern, ' = ', t.nom_valide) AS search_name,
+                concat(new_nom_vern, ' =  <i> ', t.nom_valide, '</i>', ' - [', t.id_rang, ' - ', t.cd_nom , ']') AS search_name,
 			    t.nom_valide,
 			    t.lb_nom,
 			    t.regne,
@@ -767,8 +809,12 @@ CREATE INDEX i_vm_taxref_list_forautocomplete_cd_nom
   ON vm_taxref_list_forautocomplete (cd_nom ASC NULLS LAST);
 CREATE INDEX i_vm_taxref_list_forautocomplete_search_name
   ON vm_taxref_list_forautocomplete (search_name ASC NULLS LAST);
-CREATE INDEX i_tri_vm_taxref_list_forautocomplete_search_name 
-  ON vm_taxref_list_forautocomplete USING GIST (search_name gist_trgm_ops);
+CREATE INDEX i_tri_vm_taxref_list_forautocomplete_search_name
+  ON vm_taxref_list_forautocomplete
+  USING gist
+  (search_name  gist_trgm_ops);
+
+
 
 
 CREATE TRIGGER trg_refresh_mv_taxref_list_forautocomplete
@@ -780,12 +826,13 @@ CREATE TRIGGER trg_refresh_mv_taxref_list_forautocomplete
 
 
 
-CREATE OR REPLACE FUNCTION trg_fct_refresh_nomfrancais_mv_taxref_list_forautocomplete()
+CREATE OR REPLACE FUNCTION taxonomie.trg_fct_refresh_nomfrancais_mv_taxref_list_forautocomplete()
   RETURNS trigger AS
 $BODY$
 DECLARE
 BEGIN
-    UPDATE taxonomie.vm_taxref_list_forautocomplete v SET search_name = concat(NEW.nom_francais, ' = ', t.nom_complet_html)
+    UPDATE taxonomie.vm_taxref_list_forautocomplete v
+    SET search_name = concat(NEW.nom_francais, ' =  <i> ', t.nom_valide, '</i>', ' - [', t.id_rang, ' - ', t.cd_nom , ']')
     FROM taxonomie.taxref t
 		WHERE v.cd_nom = NEW.cd_nom AND t.cd_nom = NEW.cd_nom;
     RETURN NEW;
@@ -793,6 +840,7 @@ END;
 $BODY$
   LANGUAGE plpgsql VOLATILE
   COST 100;
+
 
 
 CREATE TRIGGER trg_refresh_nomfrancais_mv_taxref_list_forautocomplete AFTER UPDATE OF nom_francais
