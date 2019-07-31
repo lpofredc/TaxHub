@@ -1,14 +1,16 @@
 
-<table class="table table-striped">
-  <tr ng-repeat="(key, liste) in listesValues">
-    <th class="col-md-6">{{liste.nom_liste}}</th>
-    <td class="col-md-2"><span
-      id="delete-liste-{{liste.id_liste}}"
-      ng-click="removeFromList(liste.id_liste)"
-      class="glyphicon glyphicon-minus btn btn-danger" aria-hidden="true"
-      ></span></td>
-  </tr>
-</table>
+<div class="table-responsive">
+  <table class="table table-striped">
+    <tr ng-repeat="(key, liste) in listesValues">
+      <th class="col-md-6">{{liste.nom_liste}}</th>
+      <td class="col-md-2"><span
+        id="delete-liste-{{liste.id_liste}}"
+        ng-click="removeFromList(liste.id_liste)"
+        class="glyphicon glyphicon-minus btn btn-danger" aria-hidden="true"
+        ></span></td>
+    </tr>
+  </table>
+</div>
 
 <div class="form-inline panel panel-default">
   <div  class="panel-heading">

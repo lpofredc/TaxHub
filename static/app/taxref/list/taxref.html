@@ -96,59 +96,60 @@
                                 <img src="static/images/spinner.gif" id="il_fi" alt="Chargement..." height="256" width="256">
                             </div>
                     </div>
+                      <div class="table-responsive">
+                        <table ng-table="ctrl.tableParams" ng-hide="ctrl.showSpinner"  show-filter="true" class="table table-condensed table-bordered table-striped">
+                          <tbody>
+                              <tr
+                                  class="active notref"
+                                  ng-repeat="tax in $data"
+                                  ng-class="{ 'warning ref':  tax.cd_nom ==  tax.cd_ref, 'exisit-in-bibtaxon':  tax.id_nom }">
 
-                    <table ng-table="ctrl.tableParams" ng-hide="ctrl.showSpinner"  show-filter="true" class="table table-condensed table-bordered table-striped">
-                        <tbody>
-                            <tr
-                                class="active notref"
-                                ng-repeat="tax in $data"
-                                ng-class="{ 'warning ref':  tax.cd_nom ==  tax.cd_ref, 'exisit-in-bibtaxon':  tax.id_nom }">
+                                  <td data-title="'Taxon'">
+                                      <a ng-if="!tax.id_nom && ctrl.userRights.high"
+                                        href="#!/taxonform/new/{{tax.cd_nom}}"
+                                        tooltip="Ajouter ce taxon à la liste des taxons de ma structure"
+                                        class="btn btn-success">
+                                          <span class="glyphicon glyphicon-plus-sign"></span>
+                                      </a>
+                                      <button ng-if="!tax.id_nom && !ctrl.userRights.high"
+                                        tooltip="Ajouter ce taxon à la liste des taxons de ma structure"
+                                        class="btn btn-success"
+                                        ng-disabled="!ctrl.userRights.high">
+                                          <span class="glyphicon glyphicon-plus-sign"></span>
+                                      </button>
+                                      <a ng-if="tax.id_nom && !ctrl.userRights.low" href="#!/taxon/{{tax.id_nom}}"
+                                        tooltip="Voir les informations de ce taxon"
+                                        class="btn btn-success" >
+                                          <span class="glyphicon glyphicon-info-sign"></span>
+                                      </a>
+                                      <a ng-if="tax.id_nom && ctrl.userRights.low"
+                                        href="#!/taxonform/edit/{{tax.id_nom}}"
+                                        tooltip="Modifier les informations de ce taxon"
+                                        class="btn btn-success" >
+                                          <span class="glyphicon glyphicon-pencil"></span>
+                                      </a>
+                                  </td>
+                                  <td data-title="'Taxref'">
+                                      <button ng-click="ctrl.openTaxrefDetail(tax.cd_nom)" tooltip="Voir toutes les informations disponibles sur ce taxons" class="btn btn-success" >
+                                          <span class="glyphicon glyphicon-eye-open"></span>
+                                      </button>
+                                  </td>
 
-                                <td data-title="'Taxon'">
-                                    <a ng-if="!tax.id_nom && ctrl.userRights.high"
-                                      href="#!/taxonform/new/{{tax.cd_nom}}"
-                                      tooltip="Ajouter ce taxon à la liste des taxons de ma structure"
-                                      class="btn btn-success">
-                                        <span class="glyphicon glyphicon-plus-sign"></span>
-                                    </a>
-                                    <button ng-if="!tax.id_nom && !ctrl.userRights.high"
-                                      tooltip="Ajouter ce taxon à la liste des taxons de ma structure"
-                                      class="btn btn-success"
-                                      ng-disabled="!ctrl.userRights.high">
-                                        <span class="glyphicon glyphicon-plus-sign"></span>
-                                    </button>
-                                    <a ng-if="tax.id_nom && !ctrl.userRights.low" href="#!/taxon/{{tax.id_nom}}"
-                                      tooltip="Voir les informations de ce taxon"
-                                      class="btn btn-success" >
-                                        <span class="glyphicon glyphicon-info-sign"></span>
-                                    </a>
-                                    <a ng-if="tax.id_nom && ctrl.userRights.low"
-                                      href="#!/taxonform/edit/{{tax.id_nom}}"
-                                      tooltip="Modifier les informations de ce taxon"
-                                      class="btn btn-success" >
-                                        <span class="glyphicon glyphicon-pencil"></span>
-                                    </a>
-                                </td>
-                                <td data-title="'Taxref'">
-                                    <button ng-click="ctrl.openTaxrefDetail(tax.cd_nom)" tooltip="Voir toutes les informations disponibles sur ce taxons" class="btn btn-success" >
-                                        <span class="glyphicon glyphicon-eye-open"></span>
-                                    </button>
-                                </td>
-
-                                <td data-title="'cd_nom'" sortable="'cd_com'" ng-if="ctrl.tableCols['cd_nom'].show">{{ tax.cd_nom }}</td>
-                                <td data-title="'cd_ref'" sortable="'cd_ref'" ng-if="ctrl.tableCols['cd_ref'].show">{{  tax.cd_ref }}</td>
-                                <td data-title="'Nom complet'" sortable="'nom_complet'" filter="{ 'nom_complet': 'text' }"  ng-if="ctrl.tableCols['nom_complet'].show">{{ tax.nom_complet }}</td>
-                                <td data-title="'Nom vernaculaire'" sortable="'nom_vern'" filter="{ 'nom_vern': 'text' }"  ng-if="ctrl.tableCols['nom_vern'].show">{{ tax.nom_vern }}</td>
-                                <td data-title="'Règne'" sortable="'regne'" filter="{ 'regne': 'text' }"  ng-if="ctrl.tableCols['regne'].show">{{ tax.regne }}</td>
-                                <td data-title="'Phylum'" sortable="'phylum'" filter="{ 'phylum': 'text' }"  ng-if="ctrl.tableCols['phylum'].show">{{ tax.phylum }}</td>
-                                <td data-title="'Classe'" sortable="'classe'" filter="{ 'classe': 'text' }"  ng-if="ctrl.tableCols['classe'].show">{{ tax.classe }}</td>
-                                <td data-title="'Ordre'" sortable="'ordre'" filter="{ 'ordre': 'text' }"  ng-if="ctrl.tableCols['ordre'].show">{{ tax.ordre }}</td>
-                                <td data-title="'Famille'" sortable="'famille'" filter="{ 'famille': 'text' }"  ng-if="ctrl.tableCols['famille'].show">{{ tax.famille }}</td>
-                                <td data-title="'group1_inpn'" sortable="'group1_inpn'" filter="{ 'group1_inpn': 'text' }"  ng-if="ctrl.tableCols['group1_inpn'].show">{{ tax.group1_inpn }}</td>
-                                <td data-title="'group2_inpn'" sortable="'group2_inpn'" filter="{ 'group2_inpn': 'text' }"  ng-if="ctrl.tableCols['group2_inpn'].show">{{ tax.group2_inpn }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                  <td data-title="'cd_nom'" sortable="'cd_com'" ng-if="ctrl.tableCols['cd_nom'].show">{{ tax.cd_nom }}</td>
+                                  <td data-title="'cd_ref'" sortable="'cd_ref'" ng-if="ctrl.tableCols['cd_ref'].show">{{  tax.cd_ref }}</td>
+                                  <td data-title="'Nom complet'" sortable="'nom_complet'" filter="{ 'nom_complet': 'text' }"  ng-if="ctrl.tableCols['nom_complet'].show">{{ tax.nom_complet }}</td>
+                                  <td data-title="'Nom vernaculaire'" sortable="'nom_vern'" filter="{ 'nom_vern': 'text' }"  ng-if="ctrl.tableCols['nom_vern'].show">{{ tax.nom_vern }}</td>
+                                  <td data-title="'Règne'" sortable="'regne'" filter="{ 'regne': 'text' }"  ng-if="ctrl.tableCols['regne'].show">{{ tax.regne }}</td>
+                                  <td data-title="'Phylum'" sortable="'phylum'" filter="{ 'phylum': 'text' }"  ng-if="ctrl.tableCols['phylum'].show">{{ tax.phylum }}</td>
+                                  <td data-title="'Classe'" sortable="'classe'" filter="{ 'classe': 'text' }"  ng-if="ctrl.tableCols['classe'].show">{{ tax.classe }}</td>
+                                  <td data-title="'Ordre'" sortable="'ordre'" filter="{ 'ordre': 'text' }"  ng-if="ctrl.tableCols['ordre'].show">{{ tax.ordre }}</td>
+                                  <td data-title="'Famille'" sortable="'famille'" filter="{ 'famille': 'text' }"  ng-if="ctrl.tableCols['famille'].show">{{ tax.famille }}</td>
+                                  <td data-title="'group1_inpn'" sortable="'group1_inpn'" filter="{ 'group1_inpn': 'text' }"  ng-if="ctrl.tableCols['group1_inpn'].show">{{ tax.group1_inpn }}</td>
+                                  <td data-title="'group2_inpn'" sortable="'group2_inpn'" filter="{ 'group2_inpn': 'text' }"  ng-if="ctrl.tableCols['group2_inpn'].show">{{ tax.group2_inpn }}</td>
+                              </tr>
+                          </tbody>
+                      </table>
+                    </div>
                 </div>
             </div>
         </div>

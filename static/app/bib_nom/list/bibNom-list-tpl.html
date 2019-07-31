@@ -86,7 +86,8 @@
                                 <img src="static/images/spinner.gif" id="il_fi" alt="Chargement..." height="256" width="256">
                             </div>
                     </div>
-                    <table ng-table="ctrl.tableParams" ng-hide="ctrl.showSpinner" show-filter="true" class="table table-condensed table-bordered table-striped">
+                    <div class="table-responsive">
+                      <table ng-table="ctrl.tableParams" ng-hide="ctrl.showSpinner" show-filter="true" class="table table-condensed table-bordered table-striped">
                         <tbody>
                             <tr ng-repeat="tx in $data" class="{{tx.customClass}}">
                                 <td data-title="'Voir'" class="{{tx.customBtnClass}}">
@@ -112,8 +113,9 @@
                                 <td data-title="'cd nom'" sortable="'cd_nom'" ng-if="ctrl.tableCols['cd_nom'].show">{{ tx.cd_nom }}</td>
                                 <td data-title="'id nom'" sortable="'id_nom'" ng-if="ctrl.tableCols['id_nom'].show">{{ tx.id_nom }}</td>
                             </tr>
-                        </tbody>
-                    </table>
+                          </tbody>
+                      </table>
+                    </div>
                 </div>
             </div>
         </div>

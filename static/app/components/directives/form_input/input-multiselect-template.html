@@ -1,14 +1,16 @@
 <div class="border-div">
-  <table class="table table-striped">
-    <tr ng-repeat="(key, val) in attrValues">
-      <td class="col-md-6">{{val}}</td>
-      <td class="col-md-2"><span
-        id="delete-liste-{{val}}"
-        ng-click="remove(val)"
-        class="glyphicon glyphicon-minus btn btn-danger" aria-hidden="true"
-        ></span></td>
-    </tr>
-  </table>
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <tr ng-repeat="(key, val) in attrValues">
+        <td class="col-md-6">{{val}}</td>
+        <td class="col-md-2"><span
+          id="delete-liste-{{val}}"
+          ng-click="remove(val)"
+          class="glyphicon glyphicon-minus btn btn-danger" aria-hidden="true"
+          ></span></td>
+      </tr>
+    </table>
+  </div>
 
   <div class="form-inline panel panel-default">
     <div  class="panel-heading">

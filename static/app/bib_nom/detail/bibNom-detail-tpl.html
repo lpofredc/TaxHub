@@ -25,6 +25,7 @@
             <uib-tab index="0" heading="Taxononomie">
                 <div class="panel panel-default detail-taxon">
                     <div class="panel-body ">
+                        <div class="table-responsive">
                         <table class="table table-striped">
                           <tr>
                             <th class="col-md-4">Nom latin</th>
@@ -77,6 +78,7 @@
                             <td class="col-md-4">{{ctrl.bibNom.comments}}</td>
                           </tr>
                         </table>
+                      </div>
                     </div>
                 </div>
             </uib-tab>
@@ -84,29 +86,34 @@
                 <div class="panel panel-default" ng-repeat="(key, value) in ctrl.bibNom.attributs | groupBy: 'nom_theme'">
                     <div class="panel-heading">{{key}}</div>
                     <div class="panel-body ">
+                      <div class="table-responsive">
                         <table  class="table table-striped ">
                             <tr ng-repeat="attribut in value  | orderBy : 'ordre'">
                               <th class="col-md-4">{{attribut.label_attribut}}</th>
                               <td class="col-md-6">{{attribut.valeur_attribut}}</td>
                             </tr>
                         </table>
+                      </div>
                     </div>
                 </div>
             </uib-tab>
             <uib-tab index="2" heading="Listes">
                 <div class="panel panel-default">
                     <div class="panel-body ">
+                      <div class="table-responsive">
                         <table class="table table-striped">
                             <tr ng-repeat="attribut in ctrl.bibNom.listes">
                                 <td class="col-md-4">{{attribut.nom_liste}}</td>
                             </tr>
                         </table>
+                      </div>
                     </div>
                 </div>
             </uib-tab>
             <uib-tab index="3" heading="Medias">
                 <div class="panel panel-default">
                     <div class="panel-body ">
+                      <div class="table-responsive">
                         <table class="table table-striped">
                             <tr >
                                 <th class="col-md-1"></th>
@@ -126,6 +133,7 @@
                                 <td class="col-md-3">{{medium.nom_type_media}}</td>
                             </tr>
                         </table>
+                      </div>
                     </div>
                 </div>
             </uib-tab>

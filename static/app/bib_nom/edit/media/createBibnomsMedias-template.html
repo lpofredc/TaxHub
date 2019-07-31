@@ -4,36 +4,38 @@
         Liste des médias attachés
     </div>
     <div class="panel-body">
-        <table class="table table-striped">
-            <tr >
-                <th class="col-md-1"></th>
-                <th class="col-md-2">Titre</th>
-                <th class="col-md-2">Type</th>
-                <th class="col-md-5">Auteur</th>
-                <th class="col-md-2">Action</th>
-            </tr>
-            <tr ng-repeat="(key, medium) in mediasValues track by medium.id_media">
-                <td class="col-md-1" >
-                  <a href="{{medium.chemin || medium.url}}" target="_blank">
-                    <img ng-src="{{medium.chemin || medium.url}}"
-                      class= "img-responsive" style="max-height:50px;"/>
-                  </a>
-                </td>
-                <td class="col-md-2">{{medium.titre}} </td>
-                <td class="col-md-2">{{medium.nom_type_media}}</td>
-                <td class="col-md-5">{{medium.auteur}}</td>
-                <td class="col-md-2" >
-                    <span>
-                        <button ng-click="updateMedium(medium)" tooltip="Modifier ce media" class="btn btn-success" >
-                            <span class="glyphicon glyphicon-edit"></span>
-                        </button>
-                        <button ng-click="deleteMedium(medium.id_media)" tooltip="Supprimer ce media" class="btn btn-danger" >
-                            <span class="glyphicon glyphicon-trash"></span>
-                        </button>
-                    </span>
-                </td>
-            </tr>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <tr >
+                    <th class="col-md-1"></th>
+                    <th class="col-md-2">Titre</th>
+                    <th class="col-md-2">Type</th>
+                    <th class="col-md-5">Auteur</th>
+                    <th class="col-md-2">Action</th>
+                </tr>
+                <tr ng-repeat="(key, medium) in mediasValues track by medium.id_media">
+                    <td class="col-md-1" >
+                    <a href="{{medium.chemin || medium.url}}" target="_blank">
+                        <img ng-src="{{medium.chemin || medium.url}}"
+                        class= "img-responsive" style="max-height:50px;"/>
+                    </a>
+                    </td>
+                    <td class="col-md-2">{{medium.titre}} </td>
+                    <td class="col-md-2">{{medium.nom_type_media}}</td>
+                    <td class="col-md-5">{{medium.auteur}}</td>
+                    <td class="col-md-2" >
+                        <span>
+                            <button ng-click="updateMedium(medium)" tooltip="Modifier ce media" class="btn btn-success" >
+                                <span class="glyphicon glyphicon-edit"></span>
+                            </button>
+                            <button ng-click="deleteMedium(medium.id_media)" tooltip="Supprimer ce media" class="btn btn-danger" >
+                                <span class="glyphicon glyphicon-trash"></span>
+                            </button>
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
         <div
             id="add-medium"
             class="glyphicon glyphicon-plus btn btn-success pull-right"
