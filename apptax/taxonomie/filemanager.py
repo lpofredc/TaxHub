@@ -1,29 +1,42 @@
-# coding: utf8
-from werkzeug.utils import secure_filename
-from flask import current_app
-
-import os
-import unicodedata
 import re
-import cv2
+import os
+import math
+import boto3
+import botocore
+import logging
+import requests
+import unicodedata
+
+from abc import ABC
+
 from shutil import rmtree
+from PIL import Image, ImageOps
+import io
+
+from werkzeug.utils import secure_filename
+
+from flask import current_app
 
 try:
     from urllib.request import urlopen
-except Exception as e:
+except Exception:
     from urllib2 import urlopen
 
-import numpy as np
+
+logger = logging.getLogger()
 
 
 def remove_dir(dirpath):
-    if(dirpath == '/'):
-        raise Exception('rm / is not possible')
+    """
+    Fonction de suppression d'un répertoire
+    """
+    if dirpath == "/":
+        raise Exception("rm / is not possible")
 
-    if (not os.path.exists(dirpath)):
-        raise FileNotFoundError('not exists {}'.format(dirpath))
-    if (not os.path.isdir(dirpath)):
-        raise FileNotFoundError('not isdir {}'.format(dirpath))
+    if not os.path.exists(dirpath):
+        raise FileNotFoundError("not exists {}".format(dirpath))
+    if not os.path.isdir(dirpath):
+        raise FileNotFoundError("not isdir {}".format(dirpath))
 
     try:
         rmtree(dirpath)
@@ -31,122 +44,273 @@ def remove_dir(dirpath):
         raise e
 
 
-def remove_file(filepath):
-    try:
-        os.remove(os.path.join(current_app.config['BASE_DIR'], filepath))
-    except Exception as e:
-        pass
-
-
-def rename_file(old_chemin, old_title, new_title):
-    new_chemin = old_chemin.replace(
-        removeDisallowedFilenameChars(old_title),
-        removeDisallowedFilenameChars(new_title)
-    )
-    os.rename(
-        os.path.join(current_app.config['BASE_DIR'],old_chemin), 
-        os.path.join(current_app.config['BASE_DIR'], new_chemin)
-    )
-    return new_chemin
-
-
-def upload_file(file, id_media, cd_ref, titre):
-    filename = "{cd_ref}_{id_media}_{file_name}.{ext}".format(
-        cd_ref=str(cd_ref),
-        id_media=str(id_media),
-        file_name=removeDisallowedFilenameChars(titre),
-        ext=file.filename.rsplit('.', 1)[1]
-    )
-    filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-    file.save(os.path.join(current_app.config['BASE_DIR'], filepath))
-    return filepath
-
-
 def removeDisallowedFilenameChars(uncleanString):
     cleanedString = secure_filename(uncleanString)
-    cleanedString = unicodedata.normalize('NFKD', uncleanString)
-    cleanedString = re.sub('[ ]+', '_', cleanedString)
-    cleanedString = re.sub('[^0-9a-zA-Z_-]', '', cleanedString)
+    cleanedString = unicodedata.normalize("NFKD", uncleanString)
+    cleanedString = re.sub("[ ]+", "_", cleanedString)
+    cleanedString = re.sub("[^0-9a-zA-Z_-]", "", cleanedString)
     return cleanedString
 
 
-# METHOD #1: OpenCV, NumPy, and urllib
-def url_to_image(url):
-    # download the image, convert it to a NumPy array, and then read
-    # it into OpenCV format
-    resp = urlopen(url)
-    image = np.asarray(bytearray(resp.read()), dtype="uint8")
-    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+class FileManagerServiceInterface(ABC):
+    """
+    Abstract class to media file manipulation functions
+    Class who inherite of this class must implement the following abstract methods:
+    - remove_file
+    - rename_file
+    - upload_file
+    """
 
-    return image
+    def __init__(self):
+        self.dir_thumb_base = os.path.join(
+            current_app.config["BASE_DIR"], current_app.config["UPLOAD_FOLDER"], "thumb"
+        )
 
+    def _get_new_chemin(self, old_chemin, old_title, new_title):
+        return old_chemin.replace(
+            removeDisallowedFilenameChars(old_title),
+            removeDisallowedFilenameChars(new_title),
+        )
 
-def resizeAndPad(img, size, pad=True, padColor=0):
-    h, w = img.shape[:2]
-    new_h = new_w = None
-    # aspect ratio of image
-    aspect = w/h
+    def _generate_file_name(self, file, id_media, cd_ref, titre):
+        return "{cd_ref}_{id_media}_{file_name}.{ext}".format(
+            cd_ref=str(cd_ref),
+            id_media=str(id_media),
+            file_name=removeDisallowedFilenameChars(titre),
+            ext=file.filename.rsplit(".", 1)[1],
+        )
 
-    if (size[1] == -1):
-        sh, sw = size = (size[0], int(h * aspect))
-        new_h = sh
-        new_w = np.round(new_h*aspect).astype(int)
-        pad = False
-    if (size[0] == -1):
-        sh, sw = size = (int(w * aspect), size[1])
-        new_w = sw
-        new_h = np.round(new_w/aspect).astype(int)
-        pad = False
-    else:
-        sh, sw = size
-
-    # compute scaling and pad sizing
-    if pad:
-        if aspect > 1:
-            # horizontal image
-            if (new_h is None):
-                new_w = sw
-                new_h = np.round(new_w/aspect).astype(int)
-
-            pad_vert = abs((sh-new_h)/2)
-            pad_top, pad_bot = np.floor(pad_vert).astype(int), np.ceil(pad_vert).astype(int)
-            pad_left, pad_right = 0, 0
-
-        elif aspect < 1:
-            # vertical image
-            if (new_h is None):
-                new_h = sh
-                new_w = np.round(new_h*aspect).astype(int)
-
-            pad_horz = abs((sw-new_w)/2)
-            pad_left, pad_right = np.floor(pad_horz).astype(int), np.ceil(pad_horz).astype(int)
-            pad_top, pad_bot = 0, 0
+    def _get_image_object(self, media):
+        if media.chemin:
+            img = Image.open(os.path.join(current_app.config["BASE_DIR"], media.chemin))
         else:
-            # square image
-            new_h, new_w = sh, sw
-            pad_left, pad_right, pad_top, pad_bot = 0, 0, 0, 0
+            img = url_to_image(media.url)
 
-    # interpolation method
-    if h > new_h or w > new_w:
-        # shrinking image
-        interp = cv2.INTER_AREA
+        return img
+
+    def remove_file(self, filepath):
+        try:
+            os.remove(os.path.join(current_app.config["BASE_DIR"], filepath))
+        except Exception:
+            pass
+
+    def rename_file(self, old_chemin, old_title, new_title):
+        new_chemin = self._get_new_chemin(old_chemin, old_title, new_title)
+
+        os.rename(
+            os.path.join(current_app.config["BASE_DIR"], old_chemin),
+            os.path.join(current_app.config["BASE_DIR"], new_chemin),
+        )
+        return new_chemin
+
+    def upload_file(self, file, id_media, cd_ref, titre):
+        filename = self._generate_file_name(file, id_media, cd_ref, titre)
+        filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+        file.save(os.path.join(current_app.config["BASE_DIR"], filepath))
+        return filepath
+
+    def remove_thumb(self, id_media):
+        # suppression des thumbnails
+        try:
+            remove_dir(
+                os.path.join(
+                    current_app.config["UPLOAD_FOLDER"], "thumb", str(id_media)
+                )
+            )
+        except (FileNotFoundError, IOError, OSError) as e:
+            logger.error(e)
+            pass
+
+    def create_thumb(self, media, size, regenerate=False):
+        id_media = media.id_media
+        thumbdir = os.path.join(self.dir_thumb_base, str(id_media))
+        thumbpath = os.path.join(thumbdir, "{}x{}.jpg".format(size[0], size[1]))
+
+        if regenerate:
+            self.remove_file(thumbpath)
+
+        # Test if media exists
+        if os.path.exists(thumbpath):
+            return thumbpath
+
+        # Get Image
+        img = self._get_image_object(media)
+
+        # Création du thumbnail
+        resizeImg = resizeAndPad(img, size)
+
+        # Sauvegarde de l'image
+        if not os.path.exists(thumbdir):
+            os.makedirs(thumbdir)
+
+        resizeImg.save(thumbpath)
+        return thumbpath
+
+    def remove_media_files(self, id_media, filepath):
+        # suppression du fichier principal
+        # S'il existe
+        if filepath:
+            self.remove_file(filepath)
+
+        # Suppression des thumbnails
+        self.remove_thumb(id_media)
+
+
+class LocalFileManagerService(FileManagerServiceInterface):
+    pass
+
+
+class S3FileManagerService(FileManagerServiceInterface):
+    """
+    Class permettant de manipuler des fichiers stockés
+        dans un cloud S3 (AWS, OVH, etc..)
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.s3 = boto3.client(
+            "s3",
+            aws_access_key_id=current_app.config["S3_KEY"],
+            aws_secret_access_key=current_app.config["S3_SECRET"],
+            endpoint_url=current_app.config["S3_ENDPOINT"],
+            region_name=current_app.config["S3_REGION_NAME"],
+        )
+
+    def _get_image_object(self, media):
+        if media.chemin:
+            img = url_to_image(os.path.join(current_app.config['S3_PUBLIC_URL'], media.chemin))
+        else:
+            img = url_to_image(media.url)
+
+        return img
+
+    def remove_file(self, filepath):
+        try:
+            # TODO prévoir un message d'erreur si echec suppression du bucket ?
+            self.s3.delete_object(
+                Bucket=current_app.config["S3_BUCKET_NAME"], Key=filepath
+            )
+        except botocore.exceptions.ParamValidationError:  # filepath is None (upload)
+            pass
+
+    def rename_file(self, old_chemin, old_title, new_title):
+        new_chemin = self._get_new_chemin(old_chemin, old_title, new_title)
+
+        self.s3.copy_object(
+            Bucket=current_app.config["S3_BUCKET_NAME"],
+            CopySource=os.path.join(current_app.config["S3_BUCKET_NAME"], old_chemin),
+            Key=new_chemin,
+        )
+        self.s3.delete_object(
+            Bucket=current_app.config["S3_BUCKET_NAME"], Key=old_chemin
+        )
+        return new_chemin
+
+    def upload_file(self, file, id_media, cd_ref, titre):
+        filename = self._generate_file_name(file, id_media, cd_ref, titre)
+        self.s3.upload_fileobj(
+            file,
+            current_app.config["S3_BUCKET_NAME"],
+            os.path.join(current_app.config["S3_FOLDER"], filename),
+            ExtraArgs={
+                "ACL": "public-read",
+                "ContentType": file.content_type,  # sans ça le content type est par défaut binary/octet-stream
+            },
+        )
+        return os.path.join(current_app.config["S3_FOLDER"], filename)
+
+
+if current_app.config["S3_BUCKET_NAME"]:  # Use S3 upload
+    FILEMANAGER = S3FileManagerService()
+else:
+    FILEMANAGER = LocalFileManagerService()
+
+
+# METHOD #2: PIL
+def url_to_image(url):
+    """
+        Récupération d'une image à partir d'une url
+    """
+    r = requests.get(url, stream=True)
+    try:
+        img = Image.open(io.BytesIO(r.content))
+    except IOError:
+        raise Exception("Media is not an image")
+    return img
+
+
+def add_border(img, border, color=0):
+    """
+    Ajout d'une bordure à une image
+    """
+    if isinstance(border, int) or isinstance(border, tuple):
+        bimg = ImageOps.expand(img, border=border, fill=color)
     else:
-        # stretching image
-        interp = cv2.INTER_CUBIC
+        raise RuntimeError("Border is not an integer or tuple!")
+
+    return bimg
+
+
+def calculate_border(initial_size, new_size, aspect):
+    """
+    Calcul de la taille de l'image et de ces bordures
+    """
+    i_h, i_w = initial_size
+    n_h, n_w = new_size
+    if aspect > 1:
+        # horizontal image
+        f_w = n_w
+        f_h = round(i_h * (n_w / i_w))
+
+        pad_vert = abs((f_h - n_h) / 2)
+        pad_top, pad_bot = math.floor(pad_vert), math.ceil(pad_vert)
+        pad_left, pad_right = 0, 0
+    elif aspect < 1:
+        # vertical image
+        f_h = n_h
+        f_w = round(i_w * (f_h / i_h))
+        pad_horz = abs((f_w - n_w) / 2)
+        pad_left, pad_right = math.floor(pad_horz), math.ceil(pad_horz)
+        pad_top, pad_bot = 0, 0
+    else:
+        # square image
+        f_h, f_w = new_size
+        pad_left, pad_right, pad_top, pad_bot = 0, 0, 0, 0
+
+    return ((f_h, f_w), (pad_left, pad_right, pad_top, pad_bot))
+
+
+def resizeAndPad(img, new_size, pad=True, padColor=0):
+
+    inital_w, inital_h = img.size
+    final_h = final_w = None
+    pad_left, pad_top, pad_right, pad_bot = (0, 0, 0, 0)
+
+    # aspect ratio of image
+    aspect = inital_w / inital_h
+
+    if new_size[1] == -1:  # Si largeur non spécifé
+        final_h = new_size[0]
+        final_w = round(inital_w * (final_h / inital_h))
+        pad = False
+    elif new_size[0] == -1:  # Si hauteur non spécifé
+        final_w = new_size[1]
+        final_h = round(inital_h * (final_w / inital_w))
+        pad = False
+    else:
+        final_h, final_w = new_size
+
+    if pad:
+        final, border = calculate_border((inital_h, inital_w), new_size, aspect)
+        final_h, final_w = final
+        pad_left, pad_right, pad_top, pad_bot = border
 
     # scale and pad
-    scaled_img = cv2.resize(img, (new_w, new_h), interpolation=interp)
-    if pad:
-        # set pad color
-        if len(img.shape) == 3 and not isinstance(padColor, (list, tuple, np.ndarray)):
-            # color image but only one color provided
-            padColor = [padColor]*3
+    scaled_img = img.resize((final_w, final_h))
 
-        scaled_img = cv2.copyMakeBorder(
-            scaled_img,
-            pad_top, pad_bot, pad_left, pad_right,
-            borderType=cv2.BORDER_CONSTANT,
-            value=padColor
+    if pad:
+        scaled_img = add_border(
+            scaled_img, (pad_left, pad_top, pad_right, pad_bot), color=0
         )
 
     return scaled_img

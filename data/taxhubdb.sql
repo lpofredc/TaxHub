@@ -202,9 +202,9 @@ $BODY$
   BEGIN
       RETURN QUERY
       WITH RECURSIVE descendants AS (
-        SELECT tx1.cd_nom, tx1.cd_ref FROM taxonomie.taxref tx1 WHERE tx1.cd_taxsup = id
+        SELECT tx1.cd_nom, tx1.cd_ref FROM taxonomie.taxref tx1 WHERE tx1.cd_sup = id
       UNION ALL
-      SELECT tx2.cd_nom, tx2.cd_ref FROM descendants d JOIN taxonomie.taxref tx2 ON tx2.cd_taxsup = d.cd_nom
+      SELECT tx2.cd_nom, tx2.cd_ref FROM descendants d JOIN taxonomie.taxref tx2 ON tx2.cd_sup = d.cd_nom
       )
       SELECT * FROM descendants;
 
@@ -224,9 +224,9 @@ $BODY$
   BEGIN
       RETURN QUERY
       WITH RECURSIVE descendants AS (
-        SELECT tx1.cd_nom, tx1.cd_ref FROM taxonomie.taxref tx1 WHERE tx1.cd_taxsup = ANY(ids)
+        SELECT tx1.cd_nom, tx1.cd_ref FROM taxonomie.taxref tx1 WHERE tx1.cd_sup = ANY(ids)
       UNION ALL
-      SELECT tx2.cd_nom, tx2.cd_ref FROM descendants d JOIN taxonomie.taxref tx2 ON tx2.cd_taxsup = d.cd_nom
+      SELECT tx2.cd_nom, tx2.cd_ref FROM descendants d JOIN taxonomie.taxref tx2 ON tx2.cd_sup = d.cd_nom
       )
       SELECT * FROM descendants;
 
@@ -266,6 +266,7 @@ CREATE TABLE bib_attributs (
 
 CREATE TABLE bib_listes (
     id_liste integer NOT NULL,
+    code_liste character varying(50) NOT NULL,
     nom_liste character varying(255) NOT NULL ,
     desc_liste text,
     picto character varying(50) NOT NULL DEFAULT 'images/pictos/nopicto.gif',
@@ -276,6 +277,17 @@ COMMENT ON COLUMN bib_listes.picto IS 'Indique le chemin vers l''image du picto 
 
 ALTER TABLE taxonomie.bib_listes
   ADD CONSTRAINT unique_bib_listes_nom_liste UNIQUE (nom_liste);
+
+ALTER TABLE taxonomie.bib_listes
+  ADD CONSTRAINT unique_bib_listes_code_liste UNIQUE (code_liste);
+
+CREATE SEQUENCE bib_listes_id_liste_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER SEQUENCE bib_listes_id_liste_seq OWNED BY bib_listes.id_liste;
 
 
 CREATE TABLE bib_noms (
@@ -311,7 +323,8 @@ CREATE TABLE bib_taxref_habitats (
 
 CREATE TABLE bib_taxref_rangs (
     id_rang character(4) NOT NULL,
-    nom_rang character varying(20) NOT NULL,
+    nom_rang character varying(50) NOT NULL,
+    nom_rang_en character varying(50) NOT NULL,
     tri_rang integer
 );
 
@@ -370,11 +383,11 @@ CREATE TABLE import_taxref (
     cd_ref integer,
     rang character varying(10),
     lb_nom character varying(100),
-    lb_auteur character varying(250),
-    nom_complet character varying(255),
-    nom_complet_html character varying(255),
-    nom_valide character varying(255),
-    nom_vern text,
+    lb_auteur character varying(500),
+    nom_complet character varying(500),
+    nom_complet_html character varying(500),
+    nom_valide character varying(500),
+    nom_vern character varying(1000),
     nom_vern_eng character varying(500),
     habitat character varying(10),
     fr character varying(10),
@@ -437,15 +450,15 @@ CREATE TABLE taxref (
     cd_taxsup integer,
     cd_sup integer,
     cd_ref integer,
-    lb_nom character varying(100),
-    lb_auteur character varying(250),
-    nom_complet character varying(255),
-    nom_complet_html character varying(255),
-    nom_valide character varying(255),
+    lb_nom character varying(250),
+    lb_auteur character varying(500),
+    nom_complet character varying(500),
+    nom_complet_html character varying(500),
+    nom_valide character varying(500),
     nom_vern character varying(1000),
     nom_vern_eng character varying(500),
-    group1_inpn character varying(255),
-    group2_inpn character varying(255),
+    group1_inpn character varying(50),
+    group2_inpn character varying(50),
     url text
 );
 
@@ -534,6 +547,88 @@ WITH (
   OIDS=FALSE
 );
 
+------------------------------------------------------
+------------------------------------------------------
+--- INSERTION DES NOUVEAUX STATUTS BDC Statut
+------------------------------------------------------
+------------------------------------------------------
+CREATE TABLE taxonomie.bdc_statut_type (
+    cd_type_statut varchar(50) PRIMARY KEY,
+    lb_type_statut varchar(250),
+    regroupement_type varchar(250),
+    thematique varchar(100),
+    type_value varchar(100)
+);
+
+CREATE TABLE taxonomie.bdc_statut (
+    cd_nom int NOT NULL,
+    cd_ref int NOT NULL,
+    cd_sup int,
+    cd_type_statut varchar(50) NOT NULL,
+    lb_type_statut varchar(250),
+    regroupement_type varchar(250),
+    code_statut varchar(250),
+    label_statut varchar(1000),
+    rq_statut text,
+    cd_sig varchar(100),
+    cd_doc int,
+    lb_nom varchar(1000),
+    lb_auteur varchar(1000),
+    nom_complet_html varchar(1000),
+    nom_valide_html varchar(1000),
+    regne varchar(250),
+    phylum varchar(250),
+    classe varchar(250),
+    ordre varchar(250),
+    famille varchar(250),
+    group1_inpn varchar(255),
+    group2_inpn varchar(255),
+    lb_adm_tr varchar(100),
+    niveau_admin varchar(250),
+    cd_iso3166_1 varchar(50),
+    cd_iso3166_2 varchar(50),
+    full_citation text,
+    doc_url text,
+    thematique varchar(100),
+    type_value varchar(100)
+);
+
+CREATE TABLE taxonomie.bdc_statut_text (
+	id_text serial NOT NULL PRIMARY KEY,
+	cd_st_text  varchar(50),
+	cd_type_statut varchar(50) NOT NULL,
+	cd_sig varchar(50),
+	cd_doc int4,
+	niveau_admin varchar(250),
+	cd_iso3166_1 varchar(50),
+	cd_iso3166_2 varchar(50),
+	lb_adm_tr varchar(250),
+	full_citation text,
+	doc_url TEXT,
+	ENABLE boolean DEFAULT(true)
+);
+
+CREATE TABLE taxonomie.bdc_statut_values (
+	id_value serial NOT NULL PRIMARY KEY,
+	code_statut varchar(50) NOT NULL,
+	label_statut varchar(250)
+);
+
+CREATE TABLE taxonomie.bdc_statut_cor_text_values (
+	id_value_text serial NOT NULL PRIMARY KEY,
+	id_value int4 NOT NULL,
+	id_text int4 NOT NULL
+);
+
+
+CREATE TABLE taxonomie.bdc_statut_taxons (
+	id int4 NOT NULL PRIMARY KEY,
+	id_value_text int4 NOT NULL,
+	cd_nom int4 NOT NULL,
+	cd_ref int4 NOT NULL, -- TO KEEP?
+	rq_statut varchar(1000)
+);
+
 ALTER TABLE ONLY bib_noms ALTER COLUMN id_nom SET DEFAULT nextval('bib_noms_id_nom_seq'::regclass);
 
 ALTER TABLE ONLY bib_themes ALTER COLUMN id_theme SET DEFAULT nextval('bib_themes_id_theme_seq'::regclass);
@@ -543,6 +638,13 @@ ALTER TABLE ONLY t_medias ALTER COLUMN id_media SET DEFAULT nextval('t_medias_id
 ALTER TABLE ONLY bib_noms
     ADD CONSTRAINT bib_noms_cd_nom_key UNIQUE (cd_nom);
 
+
+COMMENT ON TABLE taxonomie.bdc_statut_text IS 'Table contenant les textes et leur zone d''application';
+COMMENT ON TABLE taxonomie.bdc_statut_type IS 'Table des grands type de statuts';
+COMMENT ON TABLE taxonomie.bdc_statut IS 'Table initialement fournie par l''INPN. Contient tout les statuts sous leur forme brute';
+COMMENT ON TABLE taxonomie.bdc_statut_values IS 'Table contenant la liste des valeurs possible pour les textes';
+COMMENT ON TABLE taxonomie.bdc_statut_taxons IS 'Table d''association entre les textes et les taxons';
+COMMENT ON TABLE taxonomie.bdc_statut_cor_text_values IS 'Table d''association entre les textes, les taxons et la valeur';
 
 ----------------
 --PRIMARY KEYS--
@@ -621,6 +723,8 @@ CREATE INDEX i_fk_taxref_bib_taxref_statuts ON taxref USING btree (id_statut);
 
 CREATE INDEX i_taxref_cd_ref ON taxref USING btree (cd_ref);
 
+CREATE INDEX i_taxref_cd_sup ON taxref USING btree (cd_sup);
+
 CREATE INDEX i_taxref_hierarchy ON taxref USING btree (regne, phylum, classe, ordre, famille);
 
 CREATE INDEX i_fk_taxref_group1_inpn ON taxref USING btree (group1_inpn);
@@ -628,6 +732,8 @@ CREATE INDEX i_fk_taxref_group1_inpn ON taxref USING btree (group1_inpn);
 CREATE INDEX i_fk_taxref_group2_inpn ON taxref USING btree (group2_inpn);
 
 CREATE INDEX i_fk_taxref_nom_vern ON taxref USING btree (nom_vern);
+
+CREATE INDEX i_bib_noms_cd_ref ON bib_noms USING btree (cd_ref);
 
 
 ----------------
@@ -680,17 +786,38 @@ ALTER TABLE bib_themes
   ADD CONSTRAINT is_valid_id_droit_theme CHECK (id_droit >= 0 AND id_droit <= 6);
 
 
+ALTER TABLE taxonomie.bdc_statut_text
+	ADD CONSTRAINT bdc_statut_text_fkey FOREIGN KEY (cd_type_statut)
+REFERENCES taxonomie.bdc_statut_type(cd_type_statut) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE taxonomie.bdc_statut_cor_text_values
+	ADD CONSTRAINT tbdc_statut_cor_text_values_id_value_fkey FOREIGN KEY (id_value)
+REFERENCES taxonomie.bdc_statut_values(id_value) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE taxonomie.bdc_statut_cor_text_values
+	ADD CONSTRAINT tbdc_statut_cor_text_values_id_text_fkey FOREIGN KEY (id_text)
+REFERENCES taxonomie.bdc_statut_text(id_text) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE taxonomie.bdc_statut_taxons
+	ADD CONSTRAINT bdc_statut_taxons_id_value_text_fkey FOREIGN KEY (id_value_text)
+REFERENCES taxonomie.bdc_statut_cor_text_values(id_value_text) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE taxonomie.bdc_statut_taxons
+	ADD CONSTRAINT bdc_statut_taxons_cd_nom_fkey FOREIGN KEY (cd_nom)
+REFERENCES taxonomie.taxref(cd_nom) ON DELETE CASCADE ON UPDATE CASCADE;
+
 ------------
 --TRIGGERS--
 ------------
 CREATE TRIGGER tri_insert_t_medias BEFORE INSERT ON t_medias FOR EACH ROW EXECUTE PROCEDURE insert_t_medias();
 
-CREATE TRIGGER tri_unique_type1 BEFORE INSERT OR UPDATE ON t_medias FOR EACH ROW EXECUTE PROCEDURE unique_type1();
+CREATE TRIGGER tri_unique_type1 AFTER INSERT OR UPDATE ON t_medias FOR EACH ROW EXECUTE PROCEDURE unique_type1();
 
 CREATE TRIGGER trg_refresh_attributes_views_per_kingdom AFTER INSERT OR UPDATE OR DELETE ON bib_attributs FOR EACH ROW EXECUTE PROCEDURE trg_fct_refresh_attributesviews_per_kingdom();
 
 ---------
 --VIEWS--
+---------
 --DROP VIEW IF EXISTS v_taxref_all_listes CASCADE;
 CREATE OR REPLACE VIEW v_taxref_all_listes AS
  WITH bib_nom_lst AS (
@@ -717,132 +844,3 @@ CREATE OR REPLACE VIEW v_taxref_all_listes AS
     d.id_liste
    FROM taxonomie.taxref t
      JOIN bib_nom_lst d ON t.cd_nom = d.cd_nom;
-
-
-CREATE TABLE vm_taxref_list_forautocomplete AS
-SELECT t.cd_nom,
-  t.cd_ref,
-  t.search_name,
-  t.nom_valide,
-  t.lb_nom,
-  t.regne,
-  t.group2_inpn,
-  l.id_liste
-FROM (
-  SELECT t_1.cd_nom,
-        t_1.cd_ref,
-        concat(t_1.lb_nom, ' =  <i> ', t_1.nom_valide, '</i>', ' - [', t_1.id_rang, ' - ', t_1.cd_nom , ']') AS search_name,
-        t_1.nom_valide,
-        t_1.lb_nom,
-        t_1.regne,
-        t_1.group2_inpn
-  FROM taxonomie.taxref t_1
-  UNION
-  SELECT t_1.cd_nom,
-        t_1.cd_ref,
-        concat(n.nom_francais, ' =  <i> ', t_1.nom_valide, '</i>', ' - [', t_1.id_rang, ' - ', t_1.cd_nom , ']' ) AS search_name,
-        t_1.nom_valide,
-        t_1.lb_nom,
-        t_1.regne,
-        t_1.group2_inpn
-  FROM taxonomie.taxref t_1
-  JOIN taxonomie.bib_noms n
-  ON t_1.cd_nom = n.cd_nom
-  WHERE n.nom_francais IS NOT NULL AND t_1.cd_nom = t_1.cd_ref
-) t
-JOIN taxonomie.v_taxref_all_listes l ON t.cd_nom = l.cd_nom;
-COMMENT ON TABLE vm_taxref_list_forautocomplete
-     IS 'Table construite à partir d''une requete sur la base et mise à jour via le trigger trg_refresh_mv_taxref_list_forautocomplete de la table cor_nom_liste';
-
-
-
-
-
-CREATE OR REPLACE FUNCTION taxonomie.trg_fct_refresh_mv_taxref_list_forautocomplete()
-  RETURNS trigger AS
-$BODY$
-DECLARE
-	new_cd_nom int;
-	new_nom_vern varchar(1000);
-BEGIN
-	IF TG_OP in ('DELETE', 'TRUNCATE', 'UPDATE') THEN
-	    DELETE FROM taxonomie.vm_taxref_list_forautocomplete WHERE cd_nom IN (
-		SELECT cd_nom FROM taxonomie.bib_noms WHERE id_nom =  OLD.id_nom
-	    );
-	END IF;
-	IF TG_OP in ('INSERT', 'UPDATE') THEN
-		SELECT cd_nom, nom_francais INTO new_cd_nom, new_nom_vern FROM taxonomie.bib_noms WHERE id_nom = NEW.id_nom;
-
-		INSERT INTO taxonomie.vm_taxref_list_forautocomplete
-		SELECT t.cd_nom,
-            t.cd_ref,
-		    concat(t.lb_nom, ' =  <i> ', t.nom_valide, '</i>', ' - [', t.id_rang, ' - ', t.cd_nom , ']') AS search_name,
-		    t.nom_valide,
-		    t.lb_nom,
-		    t.regne,
-		    t.group2_inpn,
-		    NEW.id_liste
-		FROM taxonomie.taxref t  WHERE cd_nom = new_cd_nom;
-
-
-		IF NOT new_nom_vern IS NULL THEN
-			INSERT INTO taxonomie.vm_taxref_list_forautocomplete
-			SELECT t.cd_nom,
-                t.cd_ref,
-                concat(new_nom_vern, ' =  <i> ', t.nom_valide, '</i>', ' - [', t.id_rang, ' - ', t.cd_nom , ']') AS search_name,
-			    t.nom_valide,
-			    t.lb_nom,
-			    t.regne,
-			    t.group2_inpn,
-          NEW.id_liste
-			FROM taxonomie.taxref t
-			WHERE cd_nom = new_cd_nom AND t.cd_nom = t.cd_ref;
-		END IF;
-	END IF;
-  RETURN NEW;
-END;
-$BODY$
-  LANGUAGE plpgsql VOLATILE
-  COST 100;
-
-CREATE INDEX i_vm_taxref_list_forautocomplete_cd_nom
-  ON vm_taxref_list_forautocomplete (cd_nom ASC NULLS LAST);
-CREATE INDEX i_vm_taxref_list_forautocomplete_search_name
-  ON vm_taxref_list_forautocomplete (search_name ASC NULLS LAST);
-CREATE INDEX i_tri_vm_taxref_list_forautocomplete_search_name
-  ON vm_taxref_list_forautocomplete
-  USING gist
-  (search_name  gist_trgm_ops);
-
-
-
-
-CREATE TRIGGER trg_refresh_mv_taxref_list_forautocomplete
-  AFTER INSERT OR UPDATE OR DELETE
-  ON cor_nom_liste
-  FOR EACH ROW
-  EXECUTE PROCEDURE trg_fct_refresh_mv_taxref_list_forautocomplete();
-
-
-
-
-CREATE OR REPLACE FUNCTION taxonomie.trg_fct_refresh_nomfrancais_mv_taxref_list_forautocomplete()
-  RETURNS trigger AS
-$BODY$
-DECLARE
-BEGIN
-    UPDATE taxonomie.vm_taxref_list_forautocomplete v
-    SET search_name = concat(NEW.nom_francais, ' =  <i> ', t.nom_valide, '</i>', ' - [', t.id_rang, ' - ', t.cd_nom , ']')
-    FROM taxonomie.taxref t
-		WHERE v.cd_nom = NEW.cd_nom AND t.cd_nom = NEW.cd_nom;
-    RETURN NEW;
-END;
-$BODY$
-  LANGUAGE plpgsql VOLATILE
-  COST 100;
-
-
-
-CREATE TRIGGER trg_refresh_nomfrancais_mv_taxref_list_forautocomplete AFTER UPDATE OF nom_francais
-ON bib_noms FOR EACH ROW
-EXECUTE PROCEDURE trg_fct_refresh_nomfrancais_mv_taxref_list_forautocomplete();
